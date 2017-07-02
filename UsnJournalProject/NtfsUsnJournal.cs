@@ -357,7 +357,13 @@ namespace UsnJournal
 
          if (QueryUsnJournal(ref usnState) != (int)UsnJournalReturnCode.USN_JOURNAL_SUCCESS)
             throw new Win32Exception("Failed to query the USN journal on the volume.");
-         
+
+
+         if (string.IsNullOrWhiteSpace(filter) || filter.Equals("*", StringComparison.Ordinal))
+            filter = null;
+
+         var fileTypes = null != filter ? filter.Split(' ', ',', ';') : null;
+
 
          // Set up MFT_ENUM_DATA_V0 structure.
          var mftData = new Win32Api.MFT_ENUM_DATA_V0
@@ -393,7 +399,7 @@ namespace UsnJournal
                var usnEntry = new Win32Api.UsnEntry(pUsnRecord);
 
 
-               if (null == onlyFolders)
+               if (null == filter || null == onlyFolders)
                   yield return usnEntry;
 
                else if (usnEntry.IsFolder)
@@ -406,29 +412,18 @@ namespace UsnJournal
                {
                   var extension = Path.GetExtension(usnEntry.Name);
 
-                  if (filter.Equals("*", StringComparison.Ordinal))
-                     yield return usnEntry;
-
-                  else if (!string.IsNullOrEmpty(extension))
-                  {
-                     extension = extension.ToLowerInvariant().TrimStart('.');
-
-                     filter = filter.Replace(".", string.Empty);
-                     var fileTypes = filter.ToLowerInvariant().Split(' ', ',', ';');
-
-
+                  if (!string.IsNullOrEmpty(extension))
                      foreach (var fileType in fileTypes)
                      {
-                        if (fileType.EndsWith("*"))
+                        if (fileType.Contains("*"))
                         {
-                           if (extension.Contains(fileType.TrimEnd('*')))
+                           if (extension.IndexOf(fileType.Trim('*'), StringComparison.OrdinalIgnoreCase) >= 0)
                               yield return usnEntry;
                         }
 
-                        else if (extension.Equals(fileType, StringComparison.OrdinalIgnoreCase))
+                        else if (extension.Equals("." + fileType.TrimStart('.'), StringComparison.OrdinalIgnoreCase))
                            yield return usnEntry;
                      }
-                  }
                }
 
 

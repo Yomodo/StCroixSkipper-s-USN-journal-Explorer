@@ -516,7 +516,7 @@ namespace UsnJournalProject
                
                var lastError = Journal.GetPathFromFileReference(usnEntry.ParentFileReferenceNumber, out path);
                
-               if (lastError == (int) NtfsUsnJournal.UsnJournalReturnCode.USN_JOURNAL_SUCCESS && 0 == string.Compare(path, "Unavailable", StringComparison.OrdinalIgnoreCase))
+               if (lastError == (int) NtfsUsnJournal.UsnJournalReturnCode.USN_JOURNAL_SUCCESS && null != path)
                {
                   if (!usnEntry.IsFolder)
                   {

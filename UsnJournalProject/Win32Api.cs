@@ -320,13 +320,9 @@ namespace PInvoke
          out uint lpBytesReturned,
          IntPtr lpOverlapped);
 
-      /// <summary>
-      /// Sets the number of bytes specified by 'size' of the memory associated with the argument 'ptr' 
-      /// to zero.
-      /// </summary>
-      /// <param name="ptr"></param>
-      /// <param name="size"></param>
-      [DllImport("kernel32.dll")]
+
+      /// <summary>Sets the number of bytes specified by 'size' of the memory associated with the argument 'ptr' to zero.</summary>
+      [DllImport("kernel32.dll", SetLastError = false, CharSet = CharSet.Unicode)]
       public static extern void ZeroMemory(IntPtr ptr, int size);
 
 

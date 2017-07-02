@@ -35,13 +35,13 @@ namespace UsnJournalProject
          Top = top;
          Left = left;
 
-         _nameLbl.Text = string.Format(CultureInfo.CurrentCulture, usnEntry.IsFolder ? "Directory: {0}" : "File: {0}", usnEntry.Name);
+         _nameLbl.Text = string.Format(CultureInfo.InvariantCulture, usnEntry.IsFolder ? "Directory: {0}" : "File: {0}", usnEntry.Name);
 
          string path;
 
          var lastError = usnJournal.GetPathFromFileReference(usnEntry.ParentFileReferenceNumber, out path);
-         if (lastError == (int) NtfsUsnJournal.UsnJournalReturnCode.USN_JOURNAL_SUCCESS && !path.Equals("Unavailable", StringComparison.OrdinalIgnoreCase))
-            path = string.Format(CultureInfo.CurrentCulture, "{0}{1}\\", usnJournal.VolumeName.TrimEnd('\\'), path);
+         if (lastError == (int) NtfsUsnJournal.UsnJournalReturnCode.USN_JOURNAL_SUCCESS && null != path)
+            path = string.Format(CultureInfo.InvariantCulture, "{0}{1}\\", usnJournal.VolumeName.TrimEnd('\\'), path);
 
          _pathLbl.Text = path;
 
@@ -182,7 +182,7 @@ namespace UsnJournalProject
             name = name.Replace("File: ", string.Empty).Trim();
             path = path.Replace("  Path: ", string.Empty).Trim();
 
-            if (!path.Contains("Unavailable"))
+            if (!string.IsNullOrWhiteSpace(path))
             {
                var fullPath = Path.Combine(path, name);
                if (File.Exists(fullPath))

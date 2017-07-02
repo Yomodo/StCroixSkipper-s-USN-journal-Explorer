@@ -65,53 +65,11 @@ namespace UsnJournal
       
       private readonly DriveInfo _driveInfo;
       private readonly bool bNtfsVolume;
-      private readonly uint _volumeSerialNumber;
       private IntPtr _usnJournalRootHandle;
-
 
       public static TimeSpan ElapsedTime { get; private set; }
 
-      public string VolumeName
-      {
-         get { return _driveInfo.Name; }
-      }
-
-      public long AvailableFreeSpace
-      {
-         get { return _driveInfo.AvailableFreeSpace; }
-      }
-
-      public long TotalFreeSpace
-      {
-         get { return _driveInfo.TotalFreeSpace; }
-      }
-
-      public string Format
-      {
-         get { return _driveInfo.DriveFormat; }
-      }
-
-      public DirectoryInfo RootDirectory
-      {
-         get { return _driveInfo.RootDirectory; }
-      }
-
-      public long TotalSize
-      {
-         get { return _driveInfo.TotalSize; }
-      }
-
-      public string VolumeLabel
-      {
-         get { return _driveInfo.VolumeLabel; }
-      }
-
-      public uint VolumeSerialNumber
-      {
-         get { return _volumeSerialNumber; }
-      }
-
-
+      public string VolumeName { get; private set; }
 
 
       /// <summary>Initializes an NtfsUsnJournal instance. If no exception is thrown, _usnJournalRootHandle and
@@ -134,6 +92,8 @@ namespace UsnJournal
       public NtfsUsnJournal(DriveInfo driveInfo)
       {
          _driveInfo = driveInfo;
+         VolumeName = driveInfo.Name;
+
          bNtfsVolume = _driveInfo.DriveFormat.Equals("NTFS", StringComparison.OrdinalIgnoreCase);
 
          var sw = new Stopwatch();
@@ -148,7 +108,8 @@ namespace UsnJournal
             {
                _usnJournalRootHandle = rootHandle;
 
-               lastError = GetVolumeSerialNumber(_driveInfo, out _volumeSerialNumber);
+               uint volumeSerialNumber;
+               lastError = GetVolumeSerialNumber(_driveInfo, out volumeSerialNumber);
                if (lastError != 0)
                {
                   ElapsedTime = TimeSpan.FromMilliseconds(sw.ElapsedMilliseconds);
@@ -399,7 +360,7 @@ namespace UsnJournal
                var usnEntry = new Win32Api.UsnEntry(pUsnRecord);
 
 
-               if (null == filter || null == onlyFolders)
+               if (null == onlyFolders)
                   yield return usnEntry;
 
                else if (usnEntry.IsFolder)
@@ -410,20 +371,26 @@ namespace UsnJournal
 
                else if (!(bool) onlyFolders)
                {
-                  var extension = Path.GetExtension(usnEntry.Name);
+                  if (null == filter)
+                     yield return usnEntry;
 
-                  if (!string.IsNullOrEmpty(extension))
-                     foreach (var fileType in fileTypes)
-                     {
-                        if (fileType.Contains("*"))
+                  else
+                  {
+                     var extension = Path.GetExtension(usnEntry.Name);
+
+                     if (!string.IsNullOrEmpty(extension))
+                        foreach (var fileType in fileTypes)
                         {
-                           if (extension.IndexOf(fileType.Trim('*'), StringComparison.OrdinalIgnoreCase) >= 0)
+                           if (fileType.Contains("*"))
+                           {
+                              if (extension.IndexOf(fileType.Trim('*'), StringComparison.OrdinalIgnoreCase) >= 0)
+                                 yield return usnEntry;
+                           }
+
+                           else if (extension.Equals("." + fileType.TrimStart('.'), StringComparison.OrdinalIgnoreCase))
                               yield return usnEntry;
                         }
-
-                        else if (extension.Equals("." + fileType.TrimStart('.'), StringComparison.OrdinalIgnoreCase))
-                           yield return usnEntry;
-                     }
+                  }
                }
 
 
@@ -463,7 +430,7 @@ namespace UsnJournal
       /// </remarks>
       public int GetPathFromFileReference(ulong frn, out string path)
       {
-         path = "Unavailable";
+         path = null;
          var lastError = (int) UsnJournalReturnCode.VOLUME_NOT_NTFS;
          
          var sw = new Stopwatch();
@@ -747,23 +714,15 @@ namespace UsnJournal
       /// </returns>
       public bool IsUsnJournalValid(Win32Api.USN_JOURNAL_DATA_V0 usnJournalPreviousState)
       {
-         var success = false;
+         var usnJournalState = new Win32Api.USN_JOURNAL_DATA_V0();
 
          var sw = new Stopwatch();
          sw.Start();
 
-         if (bNtfsVolume)
-         {
-            if (_usnJournalRootHandle.ToInt64() != Win32Api.INVALID_HANDLE_VALUE)
-            {
-               var usnJournalState = new Win32Api.USN_JOURNAL_DATA_V0();
-
-               if (QueryUsnJournal(ref usnJournalState) == (int) UsnJournalReturnCode.USN_JOURNAL_SUCCESS)
-                  if (usnJournalPreviousState.UsnJournalID == usnJournalState.UsnJournalID)
-                     if (usnJournalPreviousState.NextUsn >= usnJournalState.NextUsn)
-                        success = true;
-            }
-         }
+         var success = bNtfsVolume && _usnJournalRootHandle.ToInt64() != Win32Api.INVALID_HANDLE_VALUE &&
+                QueryUsnJournal(ref usnJournalState) == (int) UsnJournalReturnCode.USN_JOURNAL_SUCCESS &&
+                usnJournalPreviousState.UsnJournalID == usnJournalState.UsnJournalID &&
+                usnJournalPreviousState.NextUsn >= usnJournalState.NextUsn;
 
          ElapsedTime = TimeSpan.FromMilliseconds(sw.ElapsedMilliseconds);
 
